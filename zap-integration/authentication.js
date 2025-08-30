@@ -1,7 +1,7 @@
-// authentication.js (slightly hardened)
+// authentication.js (POC-friendly, no refresh token logic)
 const CLIENT_ID = process.env.CLIENT_ID || "zapier-myapp-001";
 const CLIENT_SECRET = process.env.CLIENT_SECRET || "39c4325efb1993344ff533646642d3fa";
-const HOST = "https://4a82c39cea26.ngrok-free.app"; // centralize host, no leading/trailing spaces
+const HOST = "https://7205df21d48d.ngrok-free.app"; // centralize host, no leading/trailing spaces
 
 const getAccessToken = async (z, bundle) => {
   const params = new URLSearchParams({
@@ -20,57 +20,24 @@ const getAccessToken = async (z, bundle) => {
       headers: { "content-type": "application/x-www-form-urlencoded" },
     });
 
-    // zapier helper that throws with a helpful error message on non-2xx
     response.throwForStatus();
 
     if (!response.data || !response.data.access_token) {
       throw new Error(`Token response missing access_token. Full response: ${JSON.stringify(response.data)}`);
     }
 
+    // 🚫 ignore refresh_token completely
     return {
       access_token: response.data.access_token,
-      refresh_token: response.data.refresh_token,
-      expires_in: response.data.expires_in,
+      expires_in: response.data.expires_in || 3600,
       token_type: response.data.token_type || 'Bearer',
     };
   } catch (err) {
-    // Add context for debugging in Zapier editor
     throw new Error(`getAccessToken failed: ${err.message}`);
   }
 };
 
-const refreshAccessToken = async (z, bundle) => {
-  const params = new URLSearchParams({
-    client_id: CLIENT_ID,
-    client_secret: CLIENT_SECRET,
-    grant_type: "refresh_token",
-    refresh_token: bundle.authData.refresh_token,
-  }).toString();
-
-  try {
-    const response = await z.request({
-      url: `${HOST}/oauth/token`,
-      method: "POST",
-      body: params,
-      headers: { "content-type": "application/x-www-form-urlencoded" },
-    });
-
-    response.throwForStatus();
-
-    if (!response.data || !response.data.access_token) {
-      throw new Error(`Refresh response missing access_token. Full response: ${JSON.stringify(response.data)}`);
-    }
-
-    return {
-      access_token: response.data.access_token,
-      refresh_token: response.data.refresh_token,
-      expires_in: response.data.expires_in,
-      token_type: response.data.token_type || 'Bearer',
-    };
-  } catch (err) {
-    throw new Error(`refreshAccessToken failed: ${err.message}`);
-  }
-};
+// No refreshAccessToken needed — skip for POC
 
 const test = async (z, bundle) => {
   if (!bundle.authData || !bundle.authData.access_token) {
@@ -105,8 +72,8 @@ module.exports = {
       },
     },
     getAccessToken,
-    refreshAccessToken,
-    autoRefresh: true,
+    // 🚫 removed refreshAccessToken
+    autoRefresh: false, // tell Zapier not to try refresh
   },
   fields: [],
   test,
